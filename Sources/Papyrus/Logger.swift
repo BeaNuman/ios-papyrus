@@ -1,5 +1,5 @@
 import Foundation
-import os
+@preconcurrency import os
 
 struct Logger {
     let logLevel: LogLevel
@@ -41,6 +41,8 @@ struct Logger {
         os_log("%{public}@", log: self.log, type: type, message)
     }
 }
+
+extension Logger: Sendable {}
 
 // MARK: Log level
 

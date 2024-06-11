@@ -1,27 +1,34 @@
+import AsyncAlgorithms
 import Foundation
 
 /// `PapyrusStore.CollectionQuery<T>` is a mechanism for querying `Papyrus` objects.
-public class CollectionQuery<T> where T: Papyrus {
-    public typealias OnFilter = (T) -> Bool
-    public typealias OnSort = (T, T) -> Bool
+public struct CollectionQuery<T> where T: Papyrus {
+    public typealias OnFilter = @Sendable (T) -> Bool
+    public typealias OnSort = @Sendable (T, T) -> Bool
     
     // Private
     private let decoder: JSONDecoder = .init()
     private let directoryURL: URL
-    private let fileManager = FileManager.default
-    private var filter: OnFilter?
+    private let filter: OnFilter?
     private let logger: Logger
-    private var sort: OnSort?
+    private let sort: OnSort?
     
     // MARK: Initialization
     
-    init(directoryURL: URL, logLevel: LogLevel = .off) {
+    init(
+        directoryURL: URL,
+        filter: OnFilter? = nil,
+        logLevel: LogLevel = .off,
+        sort: OnSort? = nil
+    ) {
         self.directoryURL = directoryURL
+        self.filter = filter
         self.logger = Logger(
             subsystem: "com.reddavis.PapyrusStore",
             category: "CollectionQuery",
             logLevel: logLevel
         )
+        self.sort = sort
     }
     
     // MARK: API
@@ -36,19 +43,25 @@ public class CollectionQuery<T> where T: Papyrus {
     /// Apply a filter to the query.
     /// - Parameter onFilter: The filter to be applied.
     /// - Returns: The query item.
-    @discardableResult
     public func filter(_ onFilter: @escaping OnFilter) -> Self {
-        self.filter = onFilter
-        return self
+        .init(
+            directoryURL: directoryURL,
+            filter: onFilter,
+            logLevel: logger.logLevel,
+            sort: sort
+        )
     }
     
     /// Apply a sort to the query.
     /// - Parameter onSort: The sort to be applied.
     /// - Returns: The query item.
-    @discardableResult
     public func sort(_ onSort: @escaping OnSort) -> Self {
-        self.sort = onSort
-        return self
+        .init(
+            directoryURL: directoryURL,
+            filter: filter,
+            logLevel: logger.logLevel,
+            sort: onSort
+        )
     }
     
     /// Observe changes to the query.
@@ -67,13 +80,14 @@ public class CollectionQuery<T> where T: Papyrus {
     
     private func fetchObjects() -> [T] {
         do {
-            let filenames = try self.fileManager.contentsOfDirectory(atPath: self.directoryURL.path)
+            let fileManager = FileManager.default
+            let filenames = try fileManager.contentsOfDirectory(atPath: self.directoryURL.path)
             return filenames.reduce(into: [(Date, T)]()) { result, filename in
                 do {
                     let url = self.directoryURL.appendingPathComponent(filename)
                     let data = try Data(contentsOf: url)
                     let model = try self.decoder.decode(T.self, from: data)
-                    let creationDate = try self.fileManager.attributesOfItem(
+                    let creationDate = try fileManager.attributesOfItem(
                         atPath: url.path
                     )[.creationDate] as? Date ?? .now
                     result.append((creationDate, model))
@@ -94,6 +108,8 @@ public class CollectionQuery<T> where T: Papyrus {
         }
     }
 }
+
+extension CollectionQuery: Sendable {}
 
 // MARK: Sequence
 

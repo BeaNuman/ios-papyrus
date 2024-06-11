@@ -1,6 +1,6 @@
-import Foundation
+@preconcurrency import Foundation
 
-struct DirectoryObserver: Sendable {
+struct DirectoryObserver {
     private let url: URL
     
     // MARK: Initialization
@@ -37,3 +37,5 @@ struct DirectoryObserver: Sendable {
         }
     }
 }
+
+extension DirectoryObserver: Sendable {}

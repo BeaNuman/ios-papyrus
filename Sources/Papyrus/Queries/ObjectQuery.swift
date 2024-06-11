@@ -1,10 +1,10 @@
+import AsyncAlgorithms
 import Foundation
 
 /// `ObjectQuery<T>` is a mechanism for querying a single `Papyrus` object.
-public class ObjectQuery<T: Papyrus> {
+public struct ObjectQuery<T: Papyrus> {
     private let decoder: JSONDecoder = .init()
     private let directoryURL: URL
-    private let fileManager = FileManager.default
     private let filename: String
     private let logger: Logger
     
@@ -39,14 +39,18 @@ public class ObjectQuery<T: Papyrus> {
         
     /// Observe changes to the query via an async stream.
     /// - Returns: A `AsyncThrowingStream` instance.
-    public func observe() -> AsyncThrowingStream<ObjectChange<T>, Error> {
-        var previousResult = self.fetchObject()
+    public func observe() -> AsyncThrowingStream<ObjectChange<T>, Error> where T: Sendable {
         do {
             let observer = try DirectoryObserver(url: self.directoryURL)
-            return observer.observe()
-                .compactMap { _ in
-                    let result = self.fetchObject()
-                    defer { previousResult = result }
+            let object = fetchObject()
+            let observerSequence = observer.observe()
+                .map { fetchObject() }
+            
+            return chain(Just(object), observerSequence)
+                .pair()
+                .compactMap { tuple in
+                    let previousResult = tuple.0
+                    let result = tuple.1
                     
                     switch (previousResult, result) {
                     case (.success(let previousModel), .success(let model)) where previousModel != model:
@@ -67,8 +71,9 @@ public class ObjectQuery<T: Papyrus> {
     }
     
     private func fetchObject() -> Result<T, Error> {
+        let fileManager = FileManager.default
         let fileURL = self.directoryURL.appendingPathComponent(self.filename)
-        guard self.fileManager.fileExists(atPath: fileURL.path) else {
+        guard fileManager.fileExists(atPath: fileURL.path) else {
             self.logger.info("Cached data not found. url: \(fileURL)")
             return .failure(NotFoundError())
         }
@@ -82,7 +87,7 @@ public class ObjectQuery<T: Papyrus> {
             do {
                 // Delete cached data
                 self.logger.debug("Deleting old cached data. url: \(fileURL)")
-                try self.fileManager.removeItem(at: fileURL)
+                try fileManager.removeItem(at: fileURL)
             } catch {
                 self.logger.error("Failed deleting old cached data. url: \(fileURL) error: \(error)")
                 return .failure(error)
@@ -92,6 +97,8 @@ public class ObjectQuery<T: Papyrus> {
     }
 }
 
+extension ObjectQuery: Sendable {}
+
 // MARK: Errors
 
 extension ObjectQuery {
@@ -100,3 +107,52 @@ extension ObjectQuery {
         var details: Error
     }
 }
+
+
+extension AsyncSequence {
+    func pair() -> AsyncPairSequence<Self> {
+        AsyncPairSequence(base: self)
+    }
+}
+
+struct AsyncPairSequence<Base: AsyncSequence>: AsyncSequence {
+    typealias AsyncIterator = Iterator
+    typealias Element = (Base.Element, Base.Element)
+    var base: Base
+
+    func makeAsyncIterator() -> AsyncIterator {
+        Iterator(base: base.makeAsyncIterator())
+    }
+}
+
+extension AsyncPairSequence: Sendable where Base: Sendable, Element: Sendable {}
+
+// MARK: Iterator
+
+extension AsyncPairSequence {
+    struct Iterator: AsyncIteratorProtocol {
+        var base: Base.AsyncIterator
+        var lastValue: Base.Element?
+
+        mutating func next() async rethrows -> (Base.Element, Base.Element)? {
+            guard let nextValue = try await base.next() else {
+                return nil
+            }
+            
+            guard let lastValue else {
+                lastValue = nextValue
+                guard let nextNextValue = try await base.next() else {
+                    return nil
+                }
+                
+                lastValue = nextNextValue
+                return (nextValue, nextNextValue)
+            }
+            
+            defer { self.lastValue = nextValue }
+            return (lastValue, nextValue)
+        }
+    }
+}
+
+extension AsyncPairSequence.Iterator: Sendable where Base.AsyncIterator: Sendable, Element: Sendable {}

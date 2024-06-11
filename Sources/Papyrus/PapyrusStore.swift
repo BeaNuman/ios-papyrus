@@ -233,8 +233,8 @@ public struct PapyrusStore: Sendable {
         
         try await withThrowingTaskGroup(of: Void.self) { group in
             for object in objects {
-                group.addTask {
-                    try self.delete(id: object.id, of: T.self, touchDirectory: false)
+                group.addTask { [id = object.id] in
+                    try self.delete(id: id, of: T.self, touchDirectory: false)
                 }
             }
             
@@ -315,7 +315,7 @@ public struct PapyrusStore: Sendable {
     ///   of stored objects to merge into.
     public func merge<T: Papyrus>(
         objects: [T],
-        into filter: @escaping (_ object: T) -> Bool
+        into filter: @Sendable @escaping (T) -> Bool
     ) async throws where T: Sendable {
         let objectIDs = objects.map(\.id)
         let objectsToDelete = self.objects(type: T.self)
