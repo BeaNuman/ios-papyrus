@@ -1,5 +1,6 @@
 import AsyncAlgorithms
 import Foundation
+import os
 
 /// `ObjectQuery<T>` is a mechanism for querying a single `Papyrus` object.
 public struct ObjectQuery<T: Papyrus> {
@@ -12,16 +13,11 @@ public struct ObjectQuery<T: Papyrus> {
     
     init<ID: LosslessStringConvertible>(
         id: ID,
-        directoryURL: URL,
-        logLevel: LogLevel = .off
+        directoryURL: URL
     ) {
         self.filename = String(id)
         self.directoryURL = directoryURL
-        self.logger = Logger(
-            subsystem: "com.reddavis.PapyrusStore",
-            category: "ObjectQuery",
-            logLevel: logLevel
-        )
+        self.logger = Logger(subsystem: "com.reddavis.PapyrusStore", category: "ObjectQuery")
     }
     
     // MARK: API

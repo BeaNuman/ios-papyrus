@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// A `PapyrusStore` is a data store for `Papyrus` conforming objects.
 ///
@@ -15,13 +16,9 @@ public struct PapyrusStore: Sendable {
     
     /// Initialize a new `PapyrusStore` instance persisted at the provided `URL`.
     /// - Parameter url: The `URL` to persist data to.
-    public init(url: URL, logLevel: LogLevel = .off) {
+    public init(url: URL) {
         self.url = url
-        self.logger = Logger(
-            subsystem: "com.reddavis.PapyrusStore",
-            category: "PapyrusStore",
-            logLevel: logLevel
-        )
+        self.logger = Logger(subsystem: "com.reddavis.PapyrusStore", category: "PapyrusStore")
         self.setupDataDirectory()
     }
     
@@ -30,9 +27,9 @@ public struct PapyrusStore: Sendable {
     ///
     /// The default Papyrus Store will persist it's data to a
     /// directory inside Application Support.
-    public init(logLevel: LogLevel = .off) {
+    public init() {
         let url = URL.applicationSupportDirectory.appendingPathComponent("Papyrus", isDirectory: true)
-        self.init(url: url, logLevel: logLevel)
+        self.init(url: url)
     }
     
     // MARK: Store management
@@ -177,8 +174,7 @@ public struct PapyrusStore: Sendable {
     public func object<T: Papyrus, ID: LosslessStringConvertible>(id: ID) -> ObjectQuery<T> {
         ObjectQuery(
             id: id,
-            directoryURL: self.directoryURL(for: T.self),
-            logLevel: self.logger.logLevel
+            directoryURL: self.directoryURL(for: T.self)
         )
     }
     
@@ -191,8 +187,7 @@ public struct PapyrusStore: Sendable {
     public func object<T: Papyrus, ID: LosslessStringConvertible>(id: ID, of type: T.Type) -> ObjectQuery<T> {
         ObjectQuery(
             id: id,
-            directoryURL: self.directoryURL(for: T.self),
-            logLevel: self.logger.logLevel
+            directoryURL: self.directoryURL(for: T.self)
         )
     }
     
@@ -202,8 +197,7 @@ public struct PapyrusStore: Sendable {
     /// - Returns: A `AnyPublisher<[T], Error>` instance.
     public func objects<T: Papyrus>(type: T.Type) -> CollectionQuery<T> {
         CollectionQuery(
-            directoryURL: self.directoryURL(for: T.self),
-            logLevel: self.logger.logLevel
+            directoryURL: self.directoryURL(for: T.self)
         )
     }
     

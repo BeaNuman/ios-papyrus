@@ -1,5 +1,6 @@
 import AsyncAlgorithms
 import Foundation
+import os
 
 /// `PapyrusStore.CollectionQuery<T>` is a mechanism for querying `Papyrus` objects.
 public struct CollectionQuery<T> where T: Papyrus {
@@ -18,16 +19,11 @@ public struct CollectionQuery<T> where T: Papyrus {
     init(
         directoryURL: URL,
         filter: OnFilter? = nil,
-        logLevel: LogLevel = .off,
         sort: OnSort? = nil
     ) {
         self.directoryURL = directoryURL
         self.filter = filter
-        self.logger = Logger(
-            subsystem: "com.reddavis.PapyrusStore",
-            category: "CollectionQuery",
-            logLevel: logLevel
-        )
+        self.logger = Logger(subsystem: "com.reddavis.PapyrusStore", category: "CollectionQuery")
         self.sort = sort
     }
     
@@ -47,7 +43,6 @@ public struct CollectionQuery<T> where T: Papyrus {
         .init(
             directoryURL: directoryURL,
             filter: onFilter,
-            logLevel: logger.logLevel,
             sort: sort
         )
     }
@@ -59,7 +54,6 @@ public struct CollectionQuery<T> where T: Papyrus {
         .init(
             directoryURL: directoryURL,
             filter: filter,
-            logLevel: logger.logLevel,
             sort: onSort
         )
     }
