@@ -1,10 +1,6 @@
-// swift-tools-version: 5.8
+// swift-tools-version: 6.0
 
 import PackageDescription
-
-let settings: [SwiftSetting] = [
-    .enableExperimentalFeature("StrictConcurrency")
-]
 
 let package = Package(
     name: "Papyrus",
@@ -26,18 +22,16 @@ let package = Package(
             dependencies: [
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             ],
-            swiftSettings: settings
         ),
         .testTarget(
             name: "Unit",
             dependencies: ["Papyrus"],
             exclude: ["Supporting Files/Unit.xctestplan"],
-            swiftSettings: settings
         ),
         .testTarget(
             name: "Performance",
             dependencies: ["Papyrus"],
             exclude: ["Supporting Files/Performance.xctestplan"]
         ),
-    ]
+    ],
 )
