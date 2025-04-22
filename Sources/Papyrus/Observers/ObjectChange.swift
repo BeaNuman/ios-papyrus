@@ -3,3 +3,5 @@ public enum ObjectChange<T: Papyrus>: Equatable {
     case created(T)
     case deleted
 }
+
+extension ObjectChange: Sendable where T: Sendable {}

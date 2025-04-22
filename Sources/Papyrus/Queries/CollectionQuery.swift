@@ -60,7 +60,7 @@ public struct CollectionQuery<T> where T: Papyrus {
     
     /// Observe changes to the query.
     /// - Returns: A `AsyncThrowingStream` instance.
-    public func observe() -> AsyncThrowingStream<[T], Error> {
+    public func observe() -> AsyncThrowingStream<[T], Error> where T: Sendable {
         do {
             let observer = try DirectoryObserver(url: self.directoryURL)
             return observer.observe()
