@@ -3,7 +3,7 @@ import Foundation
 import os
 
 /// `ObjectQuery<T>` is a mechanism for querying a single `Papyrus` object.
-public struct ObjectQuery<T: Papyrus> {
+public struct ObjectQuery<T: Papyrus>: Sendable {
     private let decoder: JSONDecoder = .init()
     private let directoryURL: URL
     private let filename: String
@@ -25,7 +25,7 @@ public struct ObjectQuery<T: Papyrus> {
     /// Executes the query.
     /// - Returns: The result of the query.
     public func execute() -> T? {
-        switch self.fetchObject() {
+        switch fetchObject() {
         case .success(let object):
             return object
         case .failure:
@@ -37,7 +37,7 @@ public struct ObjectQuery<T: Papyrus> {
     /// - Returns: A `AsyncThrowingStream` instance.
     public func observe() -> AsyncThrowingStream<ObjectChange<T>, Error> where T: Sendable {
         do {
-            let observer = try DirectoryObserver(url: self.directoryURL)
+            let observer = try DirectoryObserver(url: directoryURL)
             let object = fetchObject()
             let observerSequence = observer.observe()
                 .map { fetchObject() }
@@ -68,9 +68,9 @@ public struct ObjectQuery<T: Papyrus> {
     
     private func fetchObject() -> Result<T, Error> {
         let fileManager = FileManager.default
-        let fileURL = self.directoryURL.appendingPathComponent(self.filename)
+        let fileURL = directoryURL.appendingPathComponent(filename)
         guard fileManager.fileExists(atPath: fileURL.path) else {
-            self.logger.info("Cached data not found. url: \(fileURL)")
+            logger.info("Cached data not found. url: \(fileURL)")
             return .failure(NotFoundError())
         }
         
@@ -79,21 +79,19 @@ public struct ObjectQuery<T: Papyrus> {
             return .success(try decoder.decode(T.self, from: data))
         } catch {
             // Cached data is using an old schema.
-            self.logger.error("Failed to parse cached data. url: \(fileURL)")
+            logger.error("Failed to parse cached data. url: \(fileURL)")
             do {
                 // Delete cached data
-                self.logger.debug("Deleting old cached data. url: \(fileURL)")
+                logger.debug("Deleting old cached data. url: \(fileURL)")
                 try fileManager.removeItem(at: fileURL)
             } catch {
-                self.logger.error("Failed deleting old cached data. url: \(fileURL) error: \(error)")
+                logger.error("Failed deleting old cached data. url: \(fileURL) error: \(error)")
                 return .failure(error)
             }
             return .failure(InvalidSchemaError(details: error))
         }
     }
 }
-
-extension ObjectQuery: Sendable {}
 
 // MARK: Errors
 
@@ -151,4 +149,5 @@ extension AsyncPairSequence {
     }
 }
 
-extension AsyncPairSequence.Iterator: Sendable where Base.AsyncIterator: Sendable, Element: Sendable {}
+extension AsyncPairSequence.Iterator: Sendable
+where Base.AsyncIterator: Sendable, Element: Sendable {}

@@ -28,7 +28,7 @@ struct Just<Element>: AsyncSequence {
     /// Creates an async iterator that emits elements of this async sequence.
     /// - Returns: An instance that conforms to `AsyncIteratorProtocol`.
     func makeAsyncIterator() -> Self {
-        .init(self.element)
+        .init(element)
     }
 }
 
@@ -40,9 +40,9 @@ extension Just: AsyncIteratorProtocol {
     /// Produces the next element in the sequence.
     /// - Returns: The next element or `nil` if the end of the sequence is reached.
     mutating func next() async -> Element? {
-        guard !self.emittedElement else { return nil }
-        defer { self.emittedElement = true }
+        guard !emittedElement else { return nil }
+        defer { emittedElement = true }
         
-        return self.element
+        return element
     }
 }
