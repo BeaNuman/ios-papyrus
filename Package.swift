@@ -21,17 +21,17 @@ let package = Package(
             name: "Papyrus",
             dependencies: [
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
-            ],
+            ]
         ),
         .testTarget(
             name: "Unit",
             dependencies: ["Papyrus"],
-            exclude: ["Supporting Files/Unit.xctestplan"],
+            exclude: ["Supporting Files/Unit.xctestplan"]
         ),
         .testTarget(
             name: "Performance",
             dependencies: ["Papyrus"],
             exclude: ["Supporting Files/Performance.xctestplan"]
-        ),
-    ],
+        )
+    ]
 )
