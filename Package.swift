@@ -13,14 +13,15 @@ let package = Package(
     products: [
         .library(
             name: "Papyrus",
-            targets: ["Papyrus"]),
+            targets: ["Papyrus"]
+        )
     ],
     dependencies: [.package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.0")],
     targets: [
         .target(
             name: "Papyrus",
             dependencies: [
-                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms")
             ]
         ),
         .testTarget(
