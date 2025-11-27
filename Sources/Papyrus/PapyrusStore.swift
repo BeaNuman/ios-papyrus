@@ -102,22 +102,27 @@ public struct PapyrusStore: Sendable {
     
     /// Saves the object to the store.
     /// - Parameter object: The object to save.
-    public func save<T: Papyrus>(_ object: T) throws {
-        try save(object, touchDirectory: true)
+    public func save<T: Papyrus>(_ object: T, logLevel: LogLevel = .default) throws {
+        try save(object, touchDirectory: true, logLevel: logLevel)
     }
     
-    private func save<T: Papyrus>(_ object: T, touchDirectory: Bool) throws {
+    private func save<T: Papyrus>(_ object: T, touchDirectory: Bool, logLevel: LogLevel) throws {
         do {
             try createDirectoryIfNeeded(for: T.self)
             
             let data = try encoder.encode(object)
             let url = fileURL(for: object.typeDescription, filename: object.filename)
             try data.write(to: url)
-            logger.debug("Saved object \(object.typeDescription). filename: \(object.filename)]")
+            
+            if logLevel >= .debug {
+                logger.debug("Saved object \(object.typeDescription). filename: \(object.filename)]")
+            }
             
             if touchDirectory {
                 let directoryURL = directoryURL(for: T.self)
-                logger.debug("Touching directory. url: \(directoryURL)")
+                if logLevel >= .debug {
+                    logger.debug("Touching directory. url: \(directoryURL)")
+                }
                 try fileManager.setAttributes(
                     [.modificationDate: Date.now],
                     ofItemAtPath: directoryURL.path
@@ -131,7 +136,7 @@ public struct PapyrusStore: Sendable {
     
     /// Saves all objects to the store.
     /// - Parameter objects: An array of objects to add to the store.
-    public func save<T: Papyrus>(objects: [T]) async throws where T: Sendable {
+    public func save<T: Papyrus>(objects: [T], logLevel: LogLevel = .default) async throws where T: Sendable {
         guard !objects.isEmpty else { return }
         
         try await withThrowingTaskGroup(of: Void.self) { group in
@@ -141,7 +146,7 @@ public struct PapyrusStore: Sendable {
                 group.addTask {
                     let url = fileURL(for: object.typeDescription, filename: object.filename)
                     let fileAlreadyExists = fileManager.fileExists(atPath: url.path)
-                    try save(object, touchDirectory: false)
+                    try save(object, touchDirectory: false, logLevel: logLevel)
                     
                     if !fileAlreadyExists {
                         // Because the aren't guaranteed to happen in order
