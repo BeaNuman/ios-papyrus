@@ -11,11 +11,48 @@ on:
 jobs:
   test:
     name: Unit Tests
-    runs-on: macOS-13
-    env: 
-      DEVELOPER_DIR: /Applications/Xcode_15.0.app/Contents/Developer
+    runs-on: macos-26-xlarge
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
-      - name: Run Tests
-        run: swift test
+      - name: List Xcode installs
+        run: ls -1 /Applications | grep -i xcode
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.0"
+
+      - name: Inspect selected Xcode
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          xcodebuild -showsdks
+
+      - name: Install xcbeautify
+        run: brew install xcbeautify
+
+      - name: Run Unit Tests (Unit.xctestplan)
+        env:
+          RESULT_BUNDLE: ${{ runner.temp }}/Papyrus-UnitTests.xcresult
+        run: |
+          set -eo pipefail
+          rm -rf "$RESULT_BUNDLE"
+          xcodebuild \
+            -workspace .swiftpm/xcode/package.xcworkspace \
+            -scheme Papyrus \
+            -testPlan Unit \
+            -destination "platform=macOS,arch=arm64" \
+            -resultBundlePath "$RESULT_BUNDLE" \
+            test | xcbeautify --renderer github-actions
+
+      - name: Upload Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: papyrus-unit-tests.xcresult
+          path: ${{ runner.temp }}/Papyrus-UnitTests.xcresult
+          if-no-files-found: ignore
   
