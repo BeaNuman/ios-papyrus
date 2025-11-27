@@ -23,7 +23,7 @@ public struct CollectionQuery<T>: Sendable where T: Papyrus {
     ) {
         self.directoryURL = directoryURL
         self.filter = filter
-        self.logger = Logger(subsystem: "com.reddavis.PapyrusStore", category: "CollectionQuery")
+        self.logger = Logger(subsystem: "com.numan.PapyrusStore", category: "CollectionQuery")
         self.sort = sort
     }
     

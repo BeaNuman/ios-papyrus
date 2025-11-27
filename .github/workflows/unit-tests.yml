@@ -1,18 +1,23 @@
-name: "CI"
+name: Unit Tests (Plan)
 
-on: 
+on:
   push:
-    branches: 
+    branches:
       - main
   pull_request:
-    branches: 
-      - '*'
+    branches:
+      - "*"
 
 jobs:
-  test:
-    name: Unit Tests
+  unit-tests:
+    name: Run Unit.xctestplan
     runs-on: macos-26-xlarge
     timeout-minutes: 30
+    env:
+      SCHEME: Papyrus
+      TEST_PLAN: Unit
+      DESTINATION: platform=macOS,arch=arm64
+
     steps:
       - name: List Xcode installs
         run: ls -1 /Applications | grep -i xcode
@@ -42,9 +47,9 @@ jobs:
           rm -rf "$RESULT_BUNDLE"
           xcodebuild \
             -workspace .swiftpm/xcode/package.xcworkspace \
-            -scheme Papyrus \
-            -testPlan Unit \
-            -destination "platform=macOS,arch=arm64" \
+            -scheme "$SCHEME" \
+            -testPlan "$TEST_PLAN" \
+            -destination "$DESTINATION" \
             -resultBundlePath "$RESULT_BUNDLE" \
             test | xcbeautify --renderer github-actions
 
@@ -55,4 +60,3 @@ jobs:
           name: papyrus-unit-tests.xcresult
           path: ${{ runner.temp }}/Papyrus-UnitTests.xcresult
           if-no-files-found: ignore
-  

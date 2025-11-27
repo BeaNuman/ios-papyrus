@@ -1,0 +1,7 @@
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+
+
+# These are default owners for all code in the repo. Unless later matches in the file take precedence,
+# they will be requested for review when someone opens a pull request.
+* @diegopetrucci @dsmailes

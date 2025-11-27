@@ -18,7 +18,7 @@ struct DirectoryObserver : Sendable {
     func observe() -> AsyncStream<Void> {
         AsyncStream { [url] continuation in
             let queue = DispatchQueue(
-                label: "com.reddavis.DirectoryObserver.directoryObserverDispatchQueue.\(UUID())",
+                label: "com.numan.DirectoryObserver.directoryObserverDispatchQueue.\(UUID())",
                 qos: .default
             )
             let fileDesciptor = open(url.path, O_EVTONLY)
