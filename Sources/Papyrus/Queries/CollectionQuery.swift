@@ -32,8 +32,10 @@ public struct CollectionQuery<T>: Sendable where T: Papyrus {
     /// Executes the query. If filter or sort parameters are
     /// set, they will be applied to the results.
     /// - Returns: The results of the query.
-    public func execute() -> [T] {
-        fetchObjects()
+    public func execute(
+        _ minimumLogLevel: LogLevel = .default,
+    ) -> [T] {
+        fetchObjects(minimumLogLevel)
     }
     
     /// Apply a filter to the query.
@@ -60,11 +62,13 @@ public struct CollectionQuery<T>: Sendable where T: Papyrus {
     
     /// Observe changes to the query.
     /// - Returns: A `AsyncThrowingStream` instance.
-    public func observe() -> AsyncThrowingStream<[T], Error> where T: Sendable {
+    public func observe(
+        _ minimumLogLevel: LogLevel = .default
+    ) -> AsyncThrowingStream<[T], Error> where T: Sendable {
         do {
             let observer = try DirectoryObserver(url: directoryURL)
             return observer.observe()
-                .map { _ in fetchObjects() }
+                .map { _ in fetchObjects(minimumLogLevel) }
                 .eraseToThrowingStream()
         } catch {
             return Fail(error: error)
@@ -72,7 +76,9 @@ public struct CollectionQuery<T>: Sendable where T: Papyrus {
         }
     }
     
-    private func fetchObjects() -> [T] {
+    private func fetchObjects(
+        _ minimumLogLevel: LogLevel
+    ) -> [T] {
         do {
             let fileManager = FileManager.default
             let filenames = try fileManager.contentsOfDirectory(atPath: directoryURL.path)
@@ -86,13 +92,19 @@ public struct CollectionQuery<T>: Sendable where T: Papyrus {
                     )[.creationDate] as? Date ?? .now
                     result.append((creationDate, model))
                 } catch {
-                    logger.error("Failed to read cached data. error: \(error)")
+                    if minimumLogLevel <= .error {
+                        logger.error("Failed to read cached data. error: \(error)")
+                    }
                     do {
                         // Delete cached data
-                        logger.debug("Deleting old cached data. url: \(url)")
+                        if minimumLogLevel <= .debug {
+                            logger.debug("Deleting old cached data. url: \(url)")
+                        }
                         try fileManager.removeItem(at: url)
                     } catch {
-                        logger.error("Failed deleting old cached data. url: \(url) error: \(error)")
+                        if minimumLogLevel <= .error {
+                            logger.error("Failed deleting old cached data. url: \(url) error: \(error)")
+                        }
                     }
                 }
             }
@@ -101,10 +113,14 @@ public struct CollectionQuery<T>: Sendable where T: Papyrus {
             .filter(filter)
             .sorted(by: sort)
         } catch CocoaError.fileReadNoSuchFile {
-            logger.info("Failed to read contents of directory. url: \(directoryURL)")
+            if minimumLogLevel <= .info {
+                logger.info("Failed to read contents of directory. url: \(directoryURL)")
+            }
             return []
         } catch {
-            logger.fault("Unknown error occured. error: \(error)")
+            if minimumLogLevel <= .fault {
+                logger.fault("Unknown error occured. error: \(error)")
+            }
             return []
         }
     }

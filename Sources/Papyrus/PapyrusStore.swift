@@ -16,10 +16,10 @@ public struct PapyrusStore: Sendable {
     
     /// Initialize a new `PapyrusStore` instance persisted at the provided `URL`.
     /// - Parameter url: The `URL` to persist data to.
-    public init(url: URL) {
+    public init(url: URL, _ minimumLogLevel: LogLevel = .default) {
         self.url = url
         self.logger = Logger(subsystem: "com.numan.PapyrusStore", category: "PapyrusStore")
-        setupDataDirectory()
+        setupDataDirectory(minimumLogLevel)
     }
     
     /// Initialize a new `PapyrusStore` instance with the default
@@ -34,20 +34,22 @@ public struct PapyrusStore: Sendable {
     
     // MARK: Store management
     
-    private func setupDataDirectory() {
+    private func setupDataDirectory(_ minimumLogLevel: LogLevel) {
         do {
-            try createDirectoryIfNeeded(at: url)
+            try createDirectoryIfNeeded(at: url, minimumLogLevel)
         } catch {
-            logger.fault("Unable to create store directory: \(error)")
+            if minimumLogLevel <= .fault {
+                logger.fault("Unable to create store directory: \(error)")
+            }
         }
     }
     
     /// Reset the store.
     ///
     /// This will destroy and then rebuild the store's directory.
-    public func reset() throws {
+    public func reset(_ minimumLogLevel: LogLevel = .default) throws {
         try fileManager.removeItem(at: url)
-        setupDataDirectory()
+        setupDataDirectory(minimumLogLevel)
     }
     
     // MARK: File management
@@ -68,15 +70,27 @@ public struct PapyrusStore: Sendable {
         url.appendingPathComponent(typeDescription, isDirectory: true)
     }
     
-    private func createDirectoryIfNeeded<T>(for type: T.Type) throws {
-        try createDirectoryIfNeeded(for: String(describing: type))
+    private func createDirectoryIfNeeded<T>(
+        for type: T.Type,
+        _ minimumLogLevel: LogLevel
+    ) throws {
+        try createDirectoryIfNeeded(
+            for: String(describing: type),
+            minimumLogLevel
+        )
     }
     
-    private func createDirectoryIfNeeded(for typeDescription: String) throws {
-        try createDirectoryIfNeeded(at: directoryURL(for: typeDescription))
+    private func createDirectoryIfNeeded(
+        for typeDescription: String,
+        _ minimumLogLevel: LogLevel
+    ) throws {
+        try createDirectoryIfNeeded(
+            at: directoryURL(for: typeDescription),
+            minimumLogLevel
+        )
     }
     
-    private func createDirectoryIfNeeded(at url: URL) throws {
+    private func createDirectoryIfNeeded(at url: URL, _ minimumLogLevel: LogLevel) throws {
         var isDirectory = ObjCBool(false)
         let exists = fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory)
         
@@ -88,7 +102,9 @@ public struct PapyrusStore: Sendable {
         
         // Create directory
         try fileManager.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
-        logger.debug("Created directory: \(url.absoluteString)")
+        if minimumLogLevel <= .debug {
+            logger.debug("Created directory: \(url.absoluteString)")
+        }
     }
     
     private func setCreatedAt(_ timestamp: Date, for url: URL) throws {
@@ -102,25 +118,29 @@ public struct PapyrusStore: Sendable {
     
     /// Saves the object to the store.
     /// - Parameter object: The object to save.
-    public func save<T: Papyrus>(_ object: T, logLevel: LogLevel = .default) throws {
-        try save(object, touchDirectory: true, logLevel: logLevel)
+    public func save<T: Papyrus>(_ object: T, minimumLogLevel: LogLevel = .default) throws {
+        try save(object, touchDirectory: true, minimumLogLevel)
     }
     
-    private func save<T: Papyrus>(_ object: T, touchDirectory: Bool, logLevel: LogLevel) throws {
+    private func save<T: Papyrus>(
+        _ object: T,
+        touchDirectory: Bool,
+        _ minimumLogLevel: LogLevel
+    ) throws {
         do {
-            try createDirectoryIfNeeded(for: T.self)
+            try createDirectoryIfNeeded(for: T.self, minimumLogLevel)
             
             let data = try encoder.encode(object)
             let url = fileURL(for: object.typeDescription, filename: object.filename)
             try data.write(to: url)
             
-            if logLevel >= .debug {
+            if minimumLogLevel <= .debug {
                 logger.debug("Saved object \(object.typeDescription). filename: \(object.filename)]")
             }
             
             if touchDirectory {
                 let directoryURL = directoryURL(for: T.self)
-                if logLevel >= .debug {
+                if minimumLogLevel <= .debug {
                     logger.debug("Touching directory. url: \(directoryURL)")
                 }
                 try fileManager.setAttributes(
@@ -129,14 +149,19 @@ public struct PapyrusStore: Sendable {
                 )
             }
         } catch {
-            logger.error("Failed to save. object: \(object.typeDescription) filename: \(object.filename)")
+            if minimumLogLevel <= .error {
+                logger.error("Failed to save. object: \(object.typeDescription) filename: \(object.filename)")
+            }
             throw error
         }
     }
     
     /// Saves all objects to the store.
     /// - Parameter objects: An array of objects to add to the store.
-    public func save<T: Papyrus>(objects: [T], logLevel: LogLevel = .default) async throws where T: Sendable {
+    public func save<T: Papyrus>(
+        objects: [T],
+        _ minimumLogLevel: LogLevel = .default,
+    ) async throws where T: Sendable {
         guard !objects.isEmpty else { return }
         
         try await withThrowingTaskGroup(of: Void.self) { group in
@@ -146,11 +171,11 @@ public struct PapyrusStore: Sendable {
                 group.addTask {
                     let url = fileURL(for: object.typeDescription, filename: object.filename)
                     let fileAlreadyExists = fileManager.fileExists(atPath: url.path)
-                    try save(object, touchDirectory: false, logLevel: logLevel)
+                    try save(object, touchDirectory: false, minimumLogLevel)
                     
                     if !fileAlreadyExists {
                         // Because the aren't guaranteed to happen in order
-                        // we need to manually set the created at timstamp.
+                        // we need to manually set the created at timestamp.
                         try setCreatedAt(
                             timestamp.addingTimeInterval(TimeInterval(index) / 100000.0),
                             for: url
@@ -162,7 +187,9 @@ public struct PapyrusStore: Sendable {
             try await group.waitForAll()
             
             let directoryURL = directoryURL(for: T.self)
-            logger.debug("Touching directory. url: \(directoryURL)")
+            if minimumLogLevel <= .debug {
+                logger.debug("Touching directory. url: \(directoryURL)")
+            }
             try fileManager.setAttributes(
                 [.modificationDate: Date.now],
                 ofItemAtPath: directoryURL.path
@@ -214,33 +241,42 @@ public struct PapyrusStore: Sendable {
     ///   - type: The `type` of the object to be deleted.
     public func delete<T: Papyrus>(
         id: T.ID,
-        of type: T.Type
+        of type: T.Type,
+        _ minimumLogLevel: LogLevel = .default
     ) throws {
-        try delete(id: id, of: type, touchDirectory: true)
+        try delete(id: id, of: type, touchDirectory: true, minimumLogLevel)
     }
 
     /// Deletes an object from the store.
     /// - Parameter object: The object to delete.
-    public func delete<T: Papyrus>(_ object: T) throws {
-        try delete(id: object.id, of: T.self, touchDirectory: true)
+    public func delete<T: Papyrus>(
+        _ object: T,
+        _ minimumLogLevel: LogLevel = .default
+    ) throws {
+        try delete(id: object.id, of: T.self, touchDirectory: true, minimumLogLevel)
     }
         
     /// Deletes an array of objects.
     /// - Parameter objects: An array of objects to delete.
-    public func delete<T: Papyrus>(objects: [T]) async throws {
+    public func delete<T: Papyrus>(
+        objects: [T],
+        _ minimumLogLevel: LogLevel = .default
+    ) async throws {
         guard !objects.isEmpty else { return }
         
         try await withThrowingTaskGroup(of: Void.self) { group in
             for object in objects {
                 group.addTask { [id = object.id] in
-                    try delete(id: id, of: T.self, touchDirectory: false)
+                    try delete(id: id, of: T.self, touchDirectory: false, minimumLogLevel)
                 }
             }
             
             try await group.waitForAll()
             
             let directoryURL = directoryURL(for: T.self)
-            logger.debug("Touching directory. url: \(directoryURL)")
+            if minimumLogLevel <= .debug {
+                logger.debug("Touching directory. url: \(directoryURL)")
+            }
             try fileManager.setAttributes(
                 [.modificationDate: Date.now],
                 ofItemAtPath: directoryURL.path
@@ -255,18 +291,23 @@ public struct PapyrusStore: Sendable {
     private func delete<T: Papyrus, ID>(
         id: ID,
         of type: T.Type,
-        touchDirectory: Bool
+        touchDirectory: Bool,
+        _ minimumLogLevel: LogLevel
     ) throws where ID: LosslessStringConvertible & Hashable {
         let objectType = String(describing: type)
         
         do {
             let url = fileURL(for: objectType, id: id)
             try fileManager.removeItem(at: url)
-            logger.debug("Deleted object \(objectType). id: \(id)")
+            if minimumLogLevel <= .debug {
+                logger.debug("Deleted object \(objectType). id: \(id)")
+            }
         } catch {
-            logger.error(
-                "Failed to delete. object: \(objectType) id: \(id), url: \(url)"
-            )
+            if minimumLogLevel <= .error {
+                logger.error(
+                    "Failed to delete. object: \(objectType) id: \(id), url: \(url)"
+                )
+            }
             throw error
         }
     }
@@ -282,12 +323,13 @@ public struct PapyrusStore: Sendable {
     ///   - Delete objects that exist in the store but do not exist in `objects`.
     /// - Parameter objects: An array of objects to merge.
     public func merge<T: Papyrus>(
-        with objects: [T]
+        with objects: [T],
+        _ minimumLogLevel: LogLevel = .default,
     ) async throws where T: Sendable {
         let objectIDs = objects.map(\.id)
         let objectsToDelete = self.objects(type: T.self)
             .filter { !objectIDs.contains($0.id) }
-            .execute()
+            .execute(minimumLogLevel)
         
         try await withThrowingTaskGroup(of: Void.self, body: { group in
             group.addTask {
@@ -314,16 +356,17 @@ public struct PapyrusStore: Sendable {
     ///   of stored objects to merge into.
     public func merge<T: Papyrus>(
         objects: [T],
-        into filter: @Sendable @escaping (T) -> Bool
+        into filter: @Sendable @escaping (T) -> Bool,
+        _ minimumLogLevel: LogLevel = .default,
     ) async throws where T: Sendable {
         let objectIDs = objects.map(\.id)
         let objectsToDelete = self.objects(type: T.self)
             .filter { !objectIDs.contains($0.id) && filter($0) }
-            .execute()
+            .execute(minimumLogLevel)
         
         try await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask {
-                try await delete(objects: objectsToDelete)
+                try await delete(objects: objectsToDelete, minimumLogLevel)
             }
             group.addTask {
                 try await save(objects: objects)
