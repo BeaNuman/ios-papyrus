@@ -17,7 +17,7 @@ public struct ObjectQuery<T: Papyrus>: Sendable {
     ) {
         self.filename = String(id)
         self.directoryURL = directoryURL
-        self.logger = Logger(subsystem: "com.reddavis.PapyrusStore", category: "ObjectQuery")
+        self.logger = Logger(subsystem: "com.numan.PapyrusStore", category: "ObjectQuery")
     }
     
     // MARK: API

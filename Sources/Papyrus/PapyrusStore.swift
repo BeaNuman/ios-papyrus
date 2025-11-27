@@ -18,7 +18,7 @@ public struct PapyrusStore: Sendable {
     /// - Parameter url: The `URL` to persist data to.
     public init(url: URL) {
         self.url = url
-        self.logger = Logger(subsystem: "com.reddavis.PapyrusStore", category: "PapyrusStore")
+        self.logger = Logger(subsystem: "com.numan.PapyrusStore", category: "PapyrusStore")
         setupDataDirectory()
     }
     
