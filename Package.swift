@@ -1,14 +1,12 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 
 import PackageDescription
 
 let package = Package(
     name: "Papyrus",
     platforms: [
-        .iOS(.v16),
-        .macOS(.v13),
-        .watchOS(.v7),
-        .tvOS(.v16)
+        .iOS(.v18),
+        .macOS(.v15),
     ],
     products: [
         .library(
