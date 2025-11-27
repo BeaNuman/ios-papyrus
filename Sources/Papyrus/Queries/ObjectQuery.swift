@@ -24,8 +24,10 @@ public struct ObjectQuery<T: Papyrus>: Sendable {
     
     /// Executes the query.
     /// - Returns: The result of the query.
-    public func execute() -> T? {
-        switch fetchObject() {
+    public func execute(
+        _ minimumLogLevel: LogLevel = .default
+    ) -> T? {
+        switch fetchObject(minimumLogLevel) {
         case .success(let object):
             return object
         case .failure:
@@ -35,12 +37,14 @@ public struct ObjectQuery<T: Papyrus>: Sendable {
         
     /// Observe changes to the query via an async stream.
     /// - Returns: A `AsyncThrowingStream` instance.
-    public func observe() -> AsyncThrowingStream<ObjectChange<T>, Error> where T: Sendable {
+    public func observe(
+        _ minimumLogLevel: LogLevel = .default,
+    ) -> AsyncThrowingStream<ObjectChange<T>, Error> where T: Sendable {
         do {
             let observer = try DirectoryObserver(url: directoryURL)
-            let object = fetchObject()
+            let object = fetchObject(minimumLogLevel)
             let observerSequence = observer.observe()
-                .map { fetchObject() }
+                .map { fetchObject(minimumLogLevel) }
             
             return chain(Just(object), observerSequence)
                 .pair()
@@ -66,11 +70,15 @@ public struct ObjectQuery<T: Papyrus>: Sendable {
         }
     }
     
-    private func fetchObject() -> Result<T, Error> {
+    private func fetchObject(
+        _ minimumLogLevel: LogLevel
+    ) -> Result<T, Error> {
         let fileManager = FileManager.default
         let fileURL = directoryURL.appendingPathComponent(filename)
         guard fileManager.fileExists(atPath: fileURL.path) else {
-            logger.info("Cached data not found. url: \(fileURL)")
+            if minimumLogLevel <= .info {
+                logger.info("Cached data not found. url: \(fileURL)")
+            }
             return .failure(NotFoundError())
         }
         
@@ -79,13 +87,19 @@ public struct ObjectQuery<T: Papyrus>: Sendable {
             return .success(try decoder.decode(T.self, from: data))
         } catch {
             // Cached data is using an old schema.
-            logger.error("Failed to parse cached data. url: \(fileURL)")
+            if minimumLogLevel <= .error {
+                logger.error("Failed to parse cached data. url: \(fileURL)")
+            }
             do {
                 // Delete cached data
-                logger.debug("Deleting old cached data. url: \(fileURL)")
+                if minimumLogLevel <= .debug {
+                    logger.debug("Deleting old cached data. url: \(fileURL)")
+                }
                 try fileManager.removeItem(at: fileURL)
             } catch {
-                logger.error("Failed deleting old cached data. url: \(fileURL) error: \(error)")
+                if minimumLogLevel <= .error {
+                    logger.error("Failed deleting old cached data. url: \(fileURL) error: \(error)")
+                }
                 return .failure(error)
             }
             return .failure(InvalidSchemaError(details: error))
